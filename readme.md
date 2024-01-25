@@ -3,7 +3,7 @@
 ## Requirements to run:
 
 1. Create a test firebase Realtime Database
-2. Create a Solana web3 Keypair (this will be your local PaintPersonaWallet)
+2. Create a Solana web3 Keypair (this will be your local MainKeypair)
 
 * `/www/service/db_key.js`
   * export Firebase config object
