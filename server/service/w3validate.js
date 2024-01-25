@@ -32,10 +32,10 @@ service.w3valid = {}
 //   return {}
 // }
 
-service.w3valid.validateOwnership = async (userPubkey, mbPubkey) => {
+service.w3valid.validateOwnership = async (userPubkey, nftPubkey) => {
   //validate user owns mb
-  const mbs = await service.w3valid.moneyboy_balance(new sw3.PublicKey(userPubkey))
-  const isOwned = [...mbs.boys, ...mbs.girls].find(obj => obj.address.toString() === mbPubkey)
+  const nfts = await service.w3valid.nfts(new sw3.PublicKey(userPubkey))
+  const isOwned = nfts.find(obj => obj.address.toString() === nftPubkey)
   return isOwned
 }
 
