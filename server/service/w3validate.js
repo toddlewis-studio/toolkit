@@ -11,7 +11,7 @@ const PaymentNet = 'https://api.metaplex.solana.com/'
 const HeliusNet = '' //HELIUS API KEY
 
 const MainKeypair = require('../asset/solkeypair.js')
-const MainPubkey = MainKeypair.pubkey()
+const MainPubkey = MainKeypair.pubkey
 
 const solConnection = () => new sw3.Connection( prod
   ? HeliusNet

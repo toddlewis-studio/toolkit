@@ -1,30 +1,134 @@
+// Docs Used:
+// https://spl.solana.com/token#reference-guide
+// https://solana-labs.github.io/solana-web3.js/
+
 const prod = require('../../isprod.js')
 const service = require('./service.js')
 const sw3 = require('@solana/web3.js')
 const spl = require('@solana/spl-token')
 const Buffer = require('buffer') // unused but you GOTTA keep it here :)
-service.web3 = {}
 
-const MainNetBeta = 'https://api.mainnet-beta.solana.com'
-const PaymentNet = 'https://api.metaplex.solana.com/'
-const HeliusNet = '' //HELIUS API KEY
+const DevNet = 'https://api.devnet.solana.com' // Fake money (dev)
+const MainNetBeta = 'https://api.mainnet-beta.solana.com' // Localhost (dev)
+const PaymentNet = 'https://api.metaplex.solana.com/' // Metaplex (dev / prod)
+const HeliusNet = '' /*HELIUS API KEY HERE*/ // Ouch, my wallet (prod)
 
 const MainKeypair = require('../asset/solkeypair.js')
-const MainPubkey = MainKeypair.pubkey()
+const MainPubkey = new sw3.PublicKey(MainKeypair._keypair.publicKey)
 
-const solConnection = () => new sw3.Connection( prod
-  ? HeliusNet
-  : MainNetBeta
+let testMode = false// set to false in prod
+
+const ConnectionNet = (owner) => new sw3.Connection(testMode
+  ? DevNet
+  : ( prod 
+    ? HeliusNet 
+    : (owner ? PaymentNet : MainNetBeta)
+    ),
+  owner ? 'confirmed' : undefined
 )
 
-const ownerNet = () => new sw3.Connection( prod
-  ? HeliusNet
-  : PaymentNet,
-  "confirmed"
-)
+// TEST: create token, nft
+// TEST: set metadata
+// TEST: send sol, token, nft
 
-const send_sol = async (amount, fromKeypair, toPubkey) => {
-  const connection = ownerNet()
+const initTestMode = async needSol => {
+  testMode = true
+  console.log(MainPubkey)
+  if(needSol) {
+    const connection = ConnectionNet(true)
+    const airdropSignature = await connection.requestAirdrop(
+      MainPubkey,
+      sw3.LAMPORTS_PER_SOL * 100,
+    )
+
+    await connection.confirmTransaction(airdropSignature)
+  }
+  console.log("TEST MODE")
+}
+
+const keypair = () => sw3.Keypair.generate()
+
+const createMint = async (ownerPubkey, payerKeypair, decimal) => {
+  const connection = ConnectionNet(true)
+  
+  const mint = await spl.createMint(
+    connection,
+    payerKeypair,
+    ownerPubkey,
+    ownerPubkey,
+    decimal || 0
+  )
+
+  return mint
+}
+
+const mintInfo = async mintPubkey => spl.getMint(
+  ConnectionNet(true),
+  mintPubkey
+)  
+ 
+const ata = async (mintPubkey, forPubkey) => {
+  const ata = await spl.getOrCreateAssociatedTokenAccount(
+    ConnectionNet(true),
+    MainKeypair,
+    mintPubkey,
+    forPubkey
+  )
+
+  return ata
+}
+
+const ataInfo = ata => spl.getAccount(ConnectionNet(true), ata.address)
+
+const mintToken = async (mintPubkey, toATA, payerKeypair, ownerKeypair, amount) => {
+  const res = await spl.mintTo(
+    ConnectionNet(true),
+    payerKeypair,
+    mintPubkey,
+    toATA.address,
+    ownerKeypair,
+    amount
+  )
+
+  console.log('minted', res)
+  return res
+}
+
+const balance = async pubkey => {
+  const connection = ConnectionNet(true)
+  const tokenAccounts = await connection.getTokenAccountsByOwner(
+    pubkey,
+    { programId: spl.TOKEN_PROGRAM_ID }
+  )
+
+  console.log("Token                                         Balance")
+  console.log("------------------------------------------------------------")
+  tokenAccounts.value.forEach((tokenAccount) => {
+    const accountData = spl.AccountLayout.decode(tokenAccount.account.data)
+    console.log(`${new sw3.PublicKey(accountData.mint)}   ${accountData.amount}`)
+  })
+}
+
+
+const mintNFT = async (mintPubkey, toATA, payerKeypair, ownerKeypair) => {
+  const connection = ConnectionNet(true)
+  const res = mintToken(mintPubkey, toATA, payerKeypair, ownerKeypair, 1)
+
+  const removeAuthTx = new sw3.Transaction()
+    .add(spl.createSetAuthorityInstruction(
+      mintPubkey,
+      MainPubkey,
+      spl.AuthorityType.MintTokens,
+      null
+    ))
+
+  await sw3.sendAndConfirmTransaction(connection, removeAuthTx, [MainKeypair])
+}
+
+const setMetadata = async () => {}
+
+const sendSol = async (amount, fromKeypair, toPubkey) => {
+  const connection = ConnectionNet(true)
   const lamports = amount
   console.log(lamports)
   const transaction = new sw3.Transaction().add(
@@ -46,47 +150,45 @@ const send_sol = async (amount, fromKeypair, toPubkey) => {
   return signature
 }
 
-const send_nft = async (mintPubkey, to) => {
-  const connection = ownerNet()
+const sendToken = async (mintPubkey, to, amount) => {
+  const connection = ConnectionNet(true)
   mintPubkey = new sw3.PublicKey(mintPubkey)
   to = new sw3.PublicKey(to)
   console.log(mintPubkey, to)
   //FROM WALLET ATA (Associated Token Address (aka the account the nft exists in inside your wallet))
-  let senderATA = await spl.getAssociatedTokenAddress(mintPubkey, MainPubkey)
+  let senderATA = await ata(mintPubkey, MainPubkey)
   console.log('sender', senderATA)
-  try {
-    //try to create an ATA for the senders wallet
-    recieverATA = await spl.createAssociatedTokenAccount(
-      connection, // connection
-      MainKeypair, // fee payer
-      mintPubkey, // mint
-      to // owner,
-    )
-  } catch(createTAError) {
-    try {
-      //if theres an error, they could already have an ATA for that NFT, so we try to send it
-      recieverATA = await spl.getAssociatedTokenAddress(mintPubkey, to)  
-    } catch(getTAError) {
-      //bruh idk debug time...
-      console.error('Error sending NFT')
-      console.error(createTAError)
-      console.error(getTAError)
-      return null
-    }
-  }
+  let recieverATA = await ata(mintPubkey, to)
   console.log('reciever', recieverATA)
-  const txhash = await spl.transferChecked(
+  const txhash = await spl.transfer(
     connection, // connection
     MainKeypair, // payer
-    senderATA, // from (should be a token account)
-    mintPubkey, // mint
-    recieverATA, // to (should be a token account)
-    MainKeypair, // from's owner
-    1, // amount, if your deciamls is 8, send 10^8 for 1 token
-    0 // decimals
+    senderATA.address, // from (should be a token account)
+    recieverATA.address, // to (should be a token account)
+    MainPubkey, // from's pubkey
+    amount || 1 // amount, if your deciamls is 8, send 10^8 for 1 token
   )
-  console.log('nft sent')
+  console.log(`token${(amount && amount > 1 ? 's' : '')} sent`)
   return txhash
 }
 
-module.exports = {send_nft, send_sol}
+module.exports = service.web3 = {
+  createMint,
+  mintInfo,
+  ata,
+  ataInfo,
+  balance,
+  mintToken,
+  mintNFT,
+  setMetadata,
+  sendSol,
+  sendToken,
+  initTestMode,
+
+  MainKeypair,
+  MainPubkey,
+  ConnectionNet,
+
+  pubkey: val => new sw3.PublicKey(val),
+  keypair,
+}
