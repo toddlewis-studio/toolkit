@@ -1,6 +1,7 @@
 // Docs Used:
 // https://spl.solana.com/token#reference-guide
 // https://solana-labs.github.io/solana-web3.js/
+// https://mpl-token-metadata-js-docs.vercel.app/index.html
 
 const prod = require('../../isprod.js')
 const service = require('./service.js')
