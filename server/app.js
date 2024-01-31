@@ -58,25 +58,29 @@ const testSendCoin = async () => {
 }
 
 const testNFT = async () => {
-  await w3.initTestMode()
-  const mint = await w3.createMint(w3.MainPubkey, w3.MainKeypair)
-  console.log(mint)
-  const ata = await w3.ata(mint, w3.MainPubkey)
-  const nft = await w3.mintNFT(
-    mint,
-    ata,
-    w3.MainKeypair,
-    w3.MainKeypair
-  )
+  // await w3.initTestMode()
+ 
+  const nft = await w3.mintNFT({
+    uri: "https://toddlewis.studio/metadata/genesis-catalog.json",
+    name: "Genisis Catalog",
+    sellerFeeBasisPoints: 0,
+    isCollection: true
+  })
 
+  console.log(nft)
   await w3.balance(w3.MainPubkey)
   
-  const newGuy = w3.keypair()
-  const to = newGuy.publicKey
-  console.log('new guy\n', to)
-  const res = await w3.sendToken(mint, to, 1)
-  console.log('res\n', res)
-  w3.balance(w3.MainPubkey)
-  w3.balance(to)
+  // const newGuy = w3.keypair()
+  // const to = newGuy.publicKey
+  // console.log('new guy\n', to)
+  // const res = await w3.sendToken(mint, to, 1)
+  // console.log('res\n', res)
+  // w3.balance(w3.MainPubkey)
+  // w3.balance(to)
 }
 testNFT()
+
+// const test = async () => {
+//   w3.balance(w3.MainPubkey)
+// }
+// test()

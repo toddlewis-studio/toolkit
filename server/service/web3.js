@@ -1,12 +1,15 @@
 // Docs Used:
 // https://spl.solana.com/token#reference-guide
 // https://solana-labs.github.io/solana-web3.js/
+// https://solana-labs.github.io/solana-program-library/token/js/modules.html
 // https://mpl-token-metadata-js-docs.vercel.app/index.html
+// https://docs.metaplex.com/programs/token-metadata/getting-started
 
 const prod = require('../../isprod.js')
 const service = require('./service.js')
 const sw3 = require('@solana/web3.js')
 const spl = require('@solana/spl-token')
+const { Metaplex, findMetadataPda, keypairIdentity, bundlrStorage } = require("@metaplex-foundation/js")
 const Buffer = require('buffer') // unused but you GOTTA keep it here :)
 
 const DevNet = 'https://api.devnet.solana.com' // Fake money (dev)
@@ -27,6 +30,13 @@ const ConnectionNet = (owner) => new sw3.Connection(testMode
     ),
   owner ? 'confirmed' : undefined
 )
+
+const metaplex = wallet => 
+  Metaplex.make(ConnectionNet())
+    .use(keypairIdentity(wallet || MainKeypair))
+    .use(bundlrStorage())
+
+const mNfts = (...options) => metaplex().nfts(...options)
 
 // TEST: create token, nft
 // TEST: set metadata
@@ -96,22 +106,26 @@ const mintToken = async (mintPubkey, toATA, payerKeypair, ownerKeypair, amount) 
 }
 
 const balance = async pubkey => {
-  const connection = ConnectionNet(true)
+  const connection = ConnectionNet()
   const tokenAccounts = await connection.getTokenAccountsByOwner(
     pubkey,
     { programId: spl.TOKEN_PROGRAM_ID }
   )
+  console.log(`|-\n|Balance:\n|    For:${pubkey.toString()}\n|    SOL:${await connection.getBalance(pubkey)}`)
 
-  console.log("Token                                         Balance")
-  console.log("------------------------------------------------------------")
-  tokenAccounts.value.forEach((tokenAccount) => {
-    const accountData = spl.AccountLayout.decode(tokenAccount.account.data)
-    console.log(`${new sw3.PublicKey(accountData.mint)}   ${accountData.amount}`)
-  })
+  if(tokenAccounts.value.length){
+    console.log("|    Token                                         Balance")
+    console.log("|    ------------------------------------------------------------")
+    tokenAccounts.value.forEach((tokenAccount) => {
+      const accountData = spl.AccountLayout.decode(tokenAccount.account.data)
+      console.log(`|    ${new sw3.PublicKey(accountData.mint)}   ${accountData.amount}`)
+    })
+  }
+  console.log('|-')
 }
 
 
-const mintNFT = async (mintPubkey, toATA, payerKeypair, ownerKeypair) => {
+const mintNFTOld = async (mintPubkey, toATA, payerKeypair, ownerKeypair) => {
   const connection = ConnectionNet(true)
   const res = mintToken(mintPubkey, toATA, payerKeypair, ownerKeypair, 1)
 
@@ -126,7 +140,14 @@ const mintNFT = async (mintPubkey, toATA, payerKeypair, ownerKeypair) => {
   await sw3.sendAndConfirmTransaction(connection, removeAuthTx, [MainKeypair])
 }
 
-const setMetadata = async () => {}
+const mintNFT = async settings => {
+  // mint settings below
+  // https://metaplex-foundation.github.io/js/types/js.CreateNftInput.html
+  console.log('minting nft...')
+  const nft = await mNfts().create(settings)
+  console.log('minting complete')
+  return nft
+}
 
 const sendSol = async (amount, fromKeypair, toPubkey) => {
   const connection = ConnectionNet(true)
@@ -181,7 +202,6 @@ module.exports = service.web3 = {
   balance,
   mintToken,
   mintNFT,
-  setMetadata,
   sendSol,
   sendToken,
   initTestMode,
@@ -189,7 +209,8 @@ module.exports = service.web3 = {
   MainKeypair,
   MainPubkey,
   ConnectionNet,
-
+  
+  metaplex,
   pubkey: val => new sw3.PublicKey(val),
   keypair,
 }

@@ -2,3 +2,4 @@ node_modules
 package-lock.json
 dist
 server/asset/solkeypair.js
+server/asset/fbkey.js
