@@ -15,10 +15,12 @@ const Buffer = require('buffer') // unused but you GOTTA keep it here :)
 const DevNet = 'https://api.devnet.solana.com' // Fake money (dev)
 const MainNetBeta = 'https://api.mainnet-beta.solana.com' // Localhost (dev)
 const PaymentNet = 'https://api.metaplex.solana.com/' // Metaplex (dev / prod)
-const HeliusNet = '' /*HELIUS API KEY HERE*/ // Ouch, my wallet (prod)
+const HeliusNet = 'https://rpc.helius.xyz/?api-key=bd706e2b-9ee8-49bf-a97e-f14764b99dcb' /*HELIUS API KEY HERE*/ // Ouch, my wallet (prod)
 
+const ArweaveKey = require('../asset/arweave.js') // Arweave JWK
 const MainKeypair = require('../asset/solkeypair.js')
 const MainPubkey = new sw3.PublicKey(MainKeypair._keypair.publicKey)
+console.log(MainPubkey)
 
 let testMode = false// set to false in prod
 
@@ -78,9 +80,9 @@ const mintInfo = async mintPubkey => spl.getMint(
   mintPubkey
 )  
  
-const ata = async (mintPubkey, forPubkey) => {
+const ata = async (mintPubkey, forPubkey, connection) => {
   const ata = await spl.getOrCreateAssociatedTokenAccount(
-    ConnectionNet(true),
+    connection || ConnectionNet(true),
     MainKeypair,
     mintPubkey,
     forPubkey
@@ -111,17 +113,19 @@ const balance = async pubkey => {
     pubkey,
     { programId: spl.TOKEN_PROGRAM_ID }
   )
-  console.log(`|-\n|Balance:\n|    For:${pubkey.toString()}\n|    SOL:${await connection.getBalance(pubkey)}`)
+  console.log('|----------------------------------------------------------------')
+  console.log(`|--- Balance ----------------------------------------------------\n|`)
+  console.log(`|    ${pubkey.toString()}\n|    ${await connection.getBalance(pubkey)} SOL\n|`)
 
   if(tokenAccounts.value.length){
-    console.log("|    Token                                         Balance")
+    console.log("|    Token                                          Balance")
     console.log("|    ------------------------------------------------------------")
     tokenAccounts.value.forEach((tokenAccount) => {
       const accountData = spl.AccountLayout.decode(tokenAccount.account.data)
       console.log(`|    ${new sw3.PublicKey(accountData.mint)}   ${accountData.amount}`)
     })
   }
-  console.log('|-')
+  console.log('|\n|----------------------------------------------------------------')
 }
 
 
@@ -178,21 +182,73 @@ const sendToken = async (mintPubkey, to, amount) => {
   to = new sw3.PublicKey(to)
   console.log(mintPubkey, to)
   //FROM WALLET ATA (Associated Token Address (aka the account the nft exists in inside your wallet))
-  let senderATA = await ata(mintPubkey, MainPubkey)
-  console.log('sender', senderATA)
-  let recieverATA = await ata(mintPubkey, to)
+  let recieverATA = await ata(mintPubkey, to, connection)
   console.log('reciever', recieverATA)
+  let senderATA = await ata(mintPubkey, MainPubkey, connection)
+  console.log('sender', senderATA)
   const txhash = await spl.transfer(
     connection, // connection
     MainKeypair, // payer
     senderATA.address, // from (should be a token account)
     recieverATA.address, // to (should be a token account)
     MainPubkey, // from's pubkey
-    amount || 1 // amount, if your deciamls is 8, send 10^8 for 1 token
+    amount || 1 // amount if your deciamls is 8, send 10^8 for 1 token
   )
   console.log(`token${(amount && amount > 1 ? 's' : '')} sent`)
   return txhash
 }
+
+const sendNFT = async (mint, to) => {
+  mint = new sw3.PublicKey(mint)
+  to = new sw3.PublicKey(to)
+  const nft = await mNfts().findByMint({mintAddress: mint})
+  console.log(nft)
+  const connection = ConnectionNet()
+  
+  const txBuilder = await mNfts().builders().transfer({
+    nftOrSft: nft,
+    fromOwner: MainPubkey,
+    toOwner: to,
+    amount: 1,
+    authority: MainKeypair
+  })
+
+  const blockhash = await connection.getLatestBlockhash()
+  const tx = txBuilder.toTransaction(blockhash)
+  
+  tx.feePayer = MainPubkey
+
+  // Sign transaction, broadcast, and confirm
+  const signature = await sw3.sendAndConfirmTransaction(connection, tx, [MainKeypair])
+  console.log('signature', signature)
+  const status =  await connection.getSignatureStatus(signature)
+  console.log('status', status)
+  return signature
+}
+
+// const uploadPNG = async (url) => {
+//   // load the data from disk
+//   const imageData = fs.readFileSync(url)
+
+//   // create a data transaction
+//   let transaction = await arweave.createTransaction({
+//     data: imageData
+//   }, ArweaveKey)
+
+//   // add a custom tag that tells the gateway how to serve this data to a browser
+//   transaction.addTag('Content-Type', 'image/png')
+
+//   // you must sign the transaction with your key before posting
+//   await arweave.transactions.sign(transaction, key)
+
+//   // create an uploader that will seed your data to the network
+//   let uploader = await arweave.transactions.getUploader(transaction)
+
+//   // run the uploader until it completes the upload.
+//   while (!uploader.isComplete) {
+//     await uploader.uploadChunk()
+//   }
+// }
 
 module.exports = service.web3 = {
   createMint,
@@ -204,6 +260,7 @@ module.exports = service.web3 = {
   mintNFT,
   sendSol,
   sendToken,
+  sendNFT,
   initTestMode,
 
   MainKeypair,

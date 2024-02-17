@@ -78,9 +78,46 @@ const testNFT = async () => {
   // w3.balance(w3.MainPubkey)
   // w3.balance(to)
 }
-testNFT()
+// testNFT()
 
 // const test = async () => {
 //   w3.balance(w3.MainPubkey)
 // }
 // test()
+
+const vdayMints = async () => {
+  
+  // const VDAYMONEYBOY = await w3.mintNFT({
+  //   uri: "https://arweave.net/XoaXJK7FuPmLaT8k2BvDUvq6MYBv4tqXEzLlmEPjBW8",
+  //   name: "Valentines Money Boy #2024",
+  //   sellerFeeBasisPoints: 693,
+  // })
+
+  // console.log(VDAYMONEYBOY)
+
+  // const VDAYMONEYGIRL = await w3.mintNFT({
+  //   uri: "https://arweave.net/AIqN-RWHfhmYz1ECE92iMCdkHAr8EXVc7vDZnUjkLDM",
+  //   name: "Valentines Money Girl #2024",
+  //   sellerFeeBasisPoints: 693,
+  // })
+
+  // console.log(VDAYMONEYGIRL)
+
+  // const res = await w3.ata(
+  //   w3.pubkey('517e3mfcHQUhx3eQchtik9efqecbDji4Y7GfVy9kQ8T8'),
+  //   w3.pubkey('24ufyLS4jMkAxoUk8pPgWnournhPVfoM2Vm5PdpVJS4r')
+  // )
+  
+  // const res = await w3.sendToken(
+  //   "517e3mfcHQUhx3eQchtik9efqecbDji4Y7GfVy9kQ8T8", 
+  //   "24ufyLS4jMkAxoUk8pPgWnournhPVfoM2Vm5PdpVJS4r",
+  //   1
+  // )
+
+  console.log(res)
+
+  await w3.balance(w3.MainPubkey)
+}
+vdayMints()
+
+// w3.balance(w3.MainPubkey)

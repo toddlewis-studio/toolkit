@@ -1,2 +1,2 @@
-module.exports = false //dev
-// module.exports = true //prod
+// module.exports = false //dev
+module.exports = true //prod
