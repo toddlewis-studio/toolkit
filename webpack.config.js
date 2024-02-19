@@ -8,36 +8,13 @@ module.exports = {
   mode: 'development',
   target: 'node',
   entry: {
-    app: './server/app.js'
+    app: './src/app.js'
   },
   output: {
     filename: '[name].js',
     path: path.resolve(__dirname, 'dist'),
   },
   externals: [nodeExternals()],
-  module: {
-    rules: [
-      {
-        test: /\.html$/i,
-        loader: "html-loader",
-      },
-      {
-        test: /\.css$/i,
-        use: ['style-loader', 'css-loader'],
-      },
-      {
-        test: /\.(png|svg|jpg|jpeg|gif)$/i,
-        type: 'asset/resource',
-      },
-      {
-        test: /\.toml$/i,
-        type: 'json',
-        parser: {
-          parse: toml.parse,
-        },
-      }
-    ],
-  },
   resolve: {
     fallback: {
       buffer: require.resolve('buffer/'),
